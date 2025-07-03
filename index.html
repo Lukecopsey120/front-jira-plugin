@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Create Jira Ticket</title>
+    <script src="plugin.js"></script>
+    <style>
+      body { font-family: sans-serif; padding: 1rem; }
+      label { display:block; margin-top:10px; }
+      input, textarea, select { width:100%; }
+      button { margin-top:20px; padding:10px; background:#007bff; color:#fff; border:none; cursor:pointer; }
+      button:hover { background:#0056b3; }
+    </style>
+  </head>
+  <body>
+    <h2>Create Jira Ticket</h2>
+    <form id="jira-form">
+      <label>Project Key:<input name="project" required></label>
+      <label>Issue Type:<input name="issuetype" required></label>
+      <label>Summary:<input name="summary" required></label>
+      <label>Description:<textarea name="description" rows="4" required></textarea></label>
+      <label>Priority:
+        <select name="priority">
+          <option value="Lowest">Lowest</option>
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+          <option value="Highest">Highest</option>
+        </select>
+      </label>
+      <label>Assignee:<input name="assignee"></label>
+      <label>Attachments:<input name="attachments" type="file" multiple></label>
+      <button type="submit">Submit to Jira</button>
+    </form>
+    <div id="result"></div>
+  </body>
+</html>
