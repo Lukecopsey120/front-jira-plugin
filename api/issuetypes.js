@@ -1,0 +1,15 @@
+export default async function handler(req, res) {
+  const { projectId } = req.query;
+  const { JIRA_DOMAIN, JIRA_EMAIL, JIRA_API_TOKEN } = process.env;
+  const auth = Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString("base64");
+
+  const response = await fetch(`https://${JIRA_DOMAIN}/rest/api/3/issuetype/project?projectId=${projectId}`, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+      Accept: "application/json"
+    }
+  });
+
+  const data = await response.json();
+  res.status(response.status).json(data);
+}
