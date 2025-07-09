@@ -1,127 +1,105 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const projectKeySelect = document.getElementById("projectKey");
-  const issueTypeSelect = document.getElementById("issueType");
-  const submitBtn = document.getElementById("submitBtn");
+const domain = import.meta.env.VITE_JIRA_DOMAIN || process.env.JIRA_DOMAIN;
+const email = import.meta.env.VITE_JIRA_EMAIL || process.env.JIRA_EMAIL;
+const token = import.meta.env.VITE_JIRA_API_TOKEN || process.env.JIRA_API_TOKEN;
+const authHeader = "Basic " + btoa(`${email}:${token}`);
 
-  const jiraEmail = import.meta.env.VITE_JIRA_EMAIL || process.env.JIRA_EMAIL;
-  const jiraToken = import.meta.env.VITE_JIRA_API_TOKEN || process.env.JIRA_API_TOKEN;
-  const jiraDomain = import.meta.env.VITE_JIRA_DOMAIN || process.env.JIRA_DOMAIN;
-
-  const authHeader = "Basic " + btoa(`${jiraEmail}:${jiraToken}`);
-
-  // Fetch projects on load
-  fetch(`https://${jiraDomain}/rest/api/3/project`, {
-    method: "GET",
-    headers: {
-      "Authorization": authHeader,
-      "Accept": "application/json"
-    }
+// Load projects
+window.onload = () => {
+  fetch(`https://${domain}/rest/api/3/project`, {
+    headers: { Authorization: authHeader, Accept: "application/json" }
   })
-  .then(response => response.json())
+  .then(res => res.json())
   .then(projects => {
+    const select = document.getElementById("projectSelect");
     projects.forEach(project => {
       const option = document.createElement("option");
-      option.value = project.key;
-      option.textContent = `${project.name} (${project.key})`;
-      projectKeySelect.appendChild(option);
+      option.value = project.id;
+      option.text = project.name;
+      option.dataset.key = project.key;
+      select.appendChild(option);
     });
+
+    loadIssueTypes(projects[0].id);
+  });
+
+  document.getElementById("projectSelect").addEventListener("change", (e) => {
+    loadIssueTypes(e.target.value);
+  });
+};
+
+function loadIssueTypes(projectId) {
+  const select = document.getElementById("issueTypeSelect");
+  select.innerHTML = "";
+
+  fetch(`https://${domain}/rest/api/3/issuetype/project?projectId=${projectId}`, {
+    headers: { Authorization: authHeader, Accept: "application/json" }
   })
-  .catch(err => {
-    console.error("Error fetching Jira projects:", err);
-    alert("Failed to load Jira projects. Check your credentials.");
-  });
-
-  // Load issue types when project selected
-  projectKeySelect.addEventListener("change", (e) => {
-    const projectKey = e.target.value;
-    issueTypeSelect.innerHTML = ""; // Clear old options
-
-    fetch(`https://${jiraDomain}/rest/api/3/issuetype/project?projectId=${projectKey}`, {
-      method: "GET",
-      headers: {
-        "Authorization": authHeader,
-        "Accept": "application/json"
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (!data.issueTypes || !data.issueTypes.length) {
-        throw new Error("No issue types found for this project.");
-      }
-      data.issueTypes.forEach(type => {
-        const option = document.createElement("option");
-        option.value = type.name;
-        option.textContent = type.name;
-        issueTypeSelect.appendChild(option);
-      });
-    })
-    .catch(err => {
-      console.error("Error fetching issue types:", err);
-      alert("Failed to load issue types for selected project.");
+  .then(res => res.json())
+  .then(data => {
+    data.issueTypes.forEach(type => {
+      const option = document.createElement("option");
+      option.value = type.id;
+      option.text = type.name;
+      select.appendChild(option);
     });
   });
+}
 
-  // Submit handler
-  submitBtn.addEventListener("click", async () => {
-    const projectKey = projectKeySelect.value;
-    const issueType = issueTypeSelect.value;
-    const summary = document.getElementById("summary").value;
-    const description = document.getElementById("description").value;
-    const priority = document.getElementById("priority").value;
-    const assignee = document.getElementById("assignee").value;
-    const attachments = document.getElementById("attachments").files;
+async function submitToJira() {
+  const projectEl = document.getElementById("projectSelect");
+  const issueTypeEl = document.getElementById("issueTypeSelect");
 
-    const createIssuePayload = {
-      fields: {
-        project: { key: projectKey },
-        summary,
-        description,
-        issuetype: { name: issueType },
-        priority: { name: priority },
-        ...(assignee ? { assignee: { name: assignee } } : {})
-      }
-    };
+  const projectKey = projectEl.options[projectEl.selectedIndex].dataset.key;
+  const issueTypeId = issueTypeEl.value;
 
-    try {
-      const issueRes = await fetch(`https://${jiraDomain}/rest/api/3/issue`, {
+  const payload = {
+    fields: {
+      project: { key: projectKey },
+      summary: document.getElementById("summary").value,
+      description: document.getElementById("description").value,
+      issuetype: { id: issueTypeId },
+      priority: { name: document.getElementById("priority").value },
+    }
+  };
+
+  const assignee = document.getElementById("assignee").value;
+  if (assignee) payload.fields.assignee = { name: assignee };
+
+  try {
+    const res = await fetch(`https://${domain}/rest/api/3/issue`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw json;
+
+    const issueKey = json.key;
+
+    // Upload attachments
+    const files = document.getElementById("attachments").files;
+    if (files.length) {
+      const formData = new FormData();
+      for (const file of files) formData.append("file", file);
+
+      await fetch(`https://${domain}/rest/api/3/issue/${issueKey}/attachments`, {
         method: "POST",
         headers: {
-          "Authorization": authHeader,
-          "Accept": "application/json",
-          "Content-Type": "application/json"
+          Authorization: authHeader,
+          "X-Atlassian-Token": "no-check"
         },
-        body: JSON.stringify(createIssuePayload)
+        body: formData
       });
-
-      const issueData = await issueRes.json();
-
-      if (!issueRes.ok) throw issueData;
-
-      const issueKey = issueData.key;
-
-      // Upload attachments
-      if (attachments.length > 0) {
-        const formData = new FormData();
-        for (let file of attachments) {
-          formData.append("file", file);
-        }
-
-        const uploadRes = await fetch(`https://${jiraDomain}/rest/api/3/issue/${issueKey}/attachments`, {
-          method: "POST",
-          headers: {
-            "Authorization": authHeader,
-            "X-Atlassian-Token": "no-check"
-          },
-          body: formData
-        });
-
-        if (!uploadRes.ok) throw await uploadRes.json();
-      }
-
-      alert(`Ticket ${issueKey} created successfully.`);
-    } catch (err) {
-      console.error("Error submitting Jira ticket:", err);
-      alert("Failed to create Jira ticket. See console for details.");
     }
-  });
-});
+
+    alert(`Ticket ${issueKey} created successfully`);
+  } catch (err) {
+    console.error("Jira error:", err);
+    alert("Something went wrong creating the ticket.");
+  }
+}
