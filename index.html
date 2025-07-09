@@ -1,5 +1,41 @@
-<label for="projectKey">Project Key:</label>
-<select id="projectKey"></select>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Jira Ticket</title>
+  <meta charset="UTF-8" />
+</head>
+<body>
+  <h2>Create Jira Ticket</h2>
 
-<label for="issueType">Issue Type:</label>
-<select id="issueType"></select>
+  <label>Project:</label><br>
+  <select id="projectSelect"></select><br><br>
+
+  <label>Issue Type:</label><br>
+  <select id="issueTypeSelect"></select><br><br>
+
+  <label>Summary:</label><br>
+  <input type="text" id="summary" /><br><br>
+
+  <label>Description:</label><br>
+  <textarea id="description"></textarea><br><br>
+
+  <label>Priority:</label><br>
+  <select id="priority">
+    <option>Highest</option>
+    <option>High</option>
+    <option selected>Medium</option>
+    <option>Low</option>
+    <option>Lowest</option>
+  </select><br><br>
+
+  <label>Assignee (email or username):</label><br>
+  <input type="text" id="assignee" /><br><br>
+
+  <label>Attachments:</label><br>
+  <input type="file" id="attachments" multiple /><br><br>
+
+  <button onclick="submitToJira()">Submit Ticket</button>
+
+  <script src="script.js"></script>
+</body>
+</html>
